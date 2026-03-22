@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8050:8050"
+    environment:
+      - SPOTIPY_CLIENT_ID=${SPOTIPY_CLIENT_ID}
+      - SPOTIPY_CLIENT_SECRET=${SPOTIPY_CLIENT_SECRET}
+      - SPOTIPY_REDIRECT_URI=${SPOTIPY_REDIRECT_URI}
+    volumes:
+      - ./spotidash:/app/spotidash
