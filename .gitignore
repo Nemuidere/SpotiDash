@@ -1,12 +1,52 @@
+# Project
+AGENTS.md
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-.env
-.venv/
-venv/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg
 *.egg-info/
 dist/
 build/
+eggs/
+.eggs/
+*.egg
+.venv/
+venv/
+ENV/
+env/
+.env
+.flaskenv
+.ruff_cache/
+.mypy_cache/
 .pytest_cache/
 .coverage
+.coverage.*
+htmlcov/
+*.cover
 *.log
+*.pot
+*.mo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Docker
+.dockerignore
+
+# Misc
+*.bak
