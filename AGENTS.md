@@ -51,6 +51,9 @@ Charts and graphs should use the same muted blue as the primary color, with supp
 
 - [ ] **Phase 3 — Spotify OAuth Flow**
   User can log in via Spotify. App handles the redirect, exchanges the code for a token, and stores it for use in API calls throughout the session.
+
+- [ ] **Phase 3.5 — Frontend Styling**
+  Applied dark theme to login page and dashboard shell. Colors: background #121212, cards #1E1E1E, accent #4A90D9, text #F0F0F0. Used Inter font. Created reusable styles module (`layout/styles.py`).
 ## Feature phases
 - [ ] **Phase 4 — Currently Playing Widget**
   A card that shows the song, artist, and album art currently playing on the user's Spotify account. Polls the API every few seconds and handles the "nothing playing" state.

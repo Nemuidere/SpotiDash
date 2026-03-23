@@ -8,11 +8,36 @@ from spotipy.cache_handler import FlaskSessionCacheHandler
 from .core import Config
 from .layout.builder import LayoutBuilder
 from .callbacks import register_callbacks
+from .layout.styles import GLOBAL_CSS
 
 
 class SpotiDash:
     def __init__(self):
         self.app = Dash(__name__)
+        self.app.index_string = f'''
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                <style>{GLOBAL_CSS}</style>
+                {{%metas%}}
+                <title>{{title}}</title>
+                {{%css%}}
+            </head>
+            <body>
+                {{%app_entry%}}
+                <footer>
+                    {{%config%}}
+                    {{%scripts%}}
+                    {{%renderer%}}
+                </footer>
+            </body>
+        </html>
+        '''
         self.server = self.app.server
         self.server.secret_key = "spotidash-secret-key"
         self.cache_handler = FlaskSessionCacheHandler(session)

@@ -1,4 +1,3 @@
-from dash import html, dcc
 from dash.dependencies import Input, Output
 
 
@@ -17,15 +16,13 @@ def register_callbacks(app, spotidash):
                 user = sp.current_user()
                 dashboard = spotidash.layout_builder.build_dashboard(user)
             except Exception:
-                return "", {"display": "none"}, spotidash.layout_builder.build_dashboard()
+                dashboard = spotidash.layout_builder.build_dashboard()
             return "", {"display": "none"}, dashboard, {"display": "block"}
         else:
             login = spotidash.layout_builder.build_login_page()
-            return login, {
-                "display": "flex",
-                "flexDirection": "column",
-                "alignItems": "center",
-                "justifyContent": "center",
-                "height": "100vh",
-                "fontFamily": "Arial, sans-serif",
-            }, "", {"display": "none"}
+            login_style = {
+                "display": "block",
+                "backgroundColor": "#121212",
+                "minHeight": "100vh",
+            }
+            return login, login_style, "", {"display": "none"}
