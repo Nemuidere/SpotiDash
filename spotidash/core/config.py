@@ -9,4 +9,4 @@ class Config:
     SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
     SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
 
-    SCOPE = "user-top-read user-read-recently-played playlist-read-private"
+    SCOPE = "user-top-read user-read-recently-played playlist-read-private user-read-currently-playing"

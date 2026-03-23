@@ -13,7 +13,7 @@ from .layout.styles import GLOBAL_CSS
 
 class SpotiDash:
     def __init__(self):
-        self.app = Dash(__name__)
+        self.app = Dash(__name__, suppress_callback_exceptions=True)
         self.app.index_string = f'''
         <!DOCTYPE html>
         <html>
@@ -85,6 +85,15 @@ class SpotiDash:
         if token_info is None:
             return None
         return spotipy.Spotify(auth=token_info["access_token"])
+
+    def get_currently_playing(self):
+        sp = self.get_spotipy_client()
+        if sp is None:
+            return None
+        try:
+            return sp.currently_playing()
+        except Exception:
+            return None
 
     def run(self, **kwargs):
         self.app.run(**kwargs)

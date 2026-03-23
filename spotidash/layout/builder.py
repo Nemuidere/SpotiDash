@@ -14,6 +14,9 @@ class LayoutBuilder:
             ),
             dcc.Location(id="url", refresh=False),
             dcc.Store(id="auth-store", storage_type="session"),
+            dcc.Store(id="now-playing-store", data=None),
+            dcc.Interval(id="now-playing-interval", interval=5000),
+            dcc.Interval(id="progress-interval", interval=1000),
             html.Div([
                 html.Div(id="login-container", style={
                     "backgroundColor": self.styles["bg"],
@@ -123,6 +126,10 @@ class LayoutBuilder:
                 "backgroundColor": self.styles["card_bg"],
                 "borderBottom": "1px solid rgba(255, 255, 255, 0.05)",
             }),
+            html.Div(id="now-playing-bar", style={
+                "backgroundColor": self.styles["card_bg"],
+                "borderBottom": "1px solid rgba(255, 255, 255, 0.05)",
+            }),
             html.Main([
                 html.Div([
                     html.H2(greeting, style={
@@ -142,3 +149,124 @@ class LayoutBuilder:
                 "padding": f"{self.styles['spacing']} 32px",
             }),
         ])
+
+    def build_currently_playing(self, track=None, elapsed_ms=0, animation_class=""):
+        if track is None:
+            return html.Div(style={"display": "none"})
+
+        album_art = track.get("item", {}).get("album", {}).get("images", [{}])[0].get("url")
+        track_name = track.get("item", {}).get("name", "Unknown Track")
+        artist_name = ", ".join([a.get("name", "Unknown") for a in track.get("item", {}).get("artists", [])])
+        is_playing = track.get("is_playing", False)
+        progress_ms = track.get("progress_ms", 0)
+        duration_ms = track.get("item", {}).get("duration_ms", 0)
+
+        current_ms = progress_ms + elapsed_ms if is_playing else progress_ms
+        current_ms = min(current_ms, duration_ms)
+        progress_percent = (current_ms / duration_ms * 100) if duration_ms > 0 else 0
+
+        def format_time(ms):
+            seconds = int(ms / 1000)
+            return f"{seconds // 60}:{seconds % 60:02d}"
+
+        return html.Div(
+            html.Div([
+                html.Img(
+                    src=album_art,
+                    style={
+                        "width": "40px",
+                        "height": "40px",
+                        "borderRadius": "4px",
+                        "objectFit": "cover",
+                        "marginRight": "12px",
+                        "flexShrink": "0",
+                    }
+                ),
+                html.Div([
+                    html.Div(track_name, style={
+                        "fontWeight": "600",
+                        "fontSize": "14px",
+                        "whiteSpace": "nowrap",
+                        "overflow": "hidden",
+                        "textOverflow": "ellipsis",
+                    }),
+                    html.Div(artist_name, style={
+                        "color": self.styles["text_muted"],
+                        "fontSize": "12px",
+                        "whiteSpace": "nowrap",
+                        "overflow": "hidden",
+                        "textOverflow": "ellipsis",
+                    }),
+                ], style={
+                    "flex": "0 0 auto",
+                    "maxWidth": "200px",
+                    "minWidth": "0",
+                }),
+                html.Div([
+                    html.Span(format_time(current_ms), style={
+                        "color": self.styles["text_muted"],
+                        "fontSize": "11px",
+                        "minWidth": "32px",
+                        "flexShrink": "0",
+                    }),
+                    html.Div(style={
+                        "flex": "1",
+                        "height": "3px",
+                        "backgroundColor": "rgba(255,255,255,0.15)",
+                        "borderRadius": "1.5px",
+                        "position": "relative",
+                        "margin": "0 12px",
+                        "minWidth": "120px",
+                        "maxWidth": "300px",
+                        "overflow": "hidden",
+                    }, children=[
+                        html.Div(style={
+                            "position": "absolute",
+                            "left": "0",
+                            "top": "0",
+                            "height": "100%",
+                            "width": f"{progress_percent}%",
+                            "backgroundColor": self.styles["accent"],
+                            "borderRadius": "1.5px",
+                        }),
+                    ]),
+                    html.Span(format_time(duration_ms), style={
+                        "color": self.styles["text_muted"],
+                        "fontSize": "11px",
+                        "minWidth": "32px",
+                        "textAlign": "right",
+                        "flexShrink": "0",
+                    }),
+                ], style={
+                    "display": "flex",
+                    "alignItems": "center",
+                    "flex": "1",
+                    "minWidth": "0",
+                    "margin": "0 16px",
+                }),
+                html.Div([
+                    html.Span("●", style={
+                        "color": "#1db954" if is_playing else self.styles["text_muted"],
+                        "marginRight": "6px",
+                    }),
+                    html.Span("Playing" if is_playing else "Paused", style={
+                        "color": "#1db954" if is_playing else self.styles["text_muted"],
+                        "fontSize": "12px",
+                    }),
+                ], style={
+                    "display": "flex",
+                    "alignItems": "center",
+                    "flexShrink": "0",
+                }),
+            ], style={
+                "display": "flex",
+                "alignItems": "center",
+                "padding": "12px 32px",
+                "width": "100%",
+            }),
+            className=animation_class,
+            style={
+                "width": "100%",
+                "overflow": "hidden",
+            }
+        )
