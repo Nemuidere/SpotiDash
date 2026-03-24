@@ -30,7 +30,8 @@ body {
 }
 
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 0px;
+    height: 0px;
 }
 
 ::-webkit-scrollbar-track {
@@ -125,5 +126,27 @@ a:hover {
 
 .content-slide-out {
     animation: contentSlideOut 0.3s ease-out forwards;
+}
+
+.time-range-btn {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #B0B0B0;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.time-range-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #F0F0F0;
+}
+
+.time-range-btn.active {
+    background-color: #4A90D9;
+    color: #F0F0F0;
 }
 """
