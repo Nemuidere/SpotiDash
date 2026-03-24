@@ -104,5 +104,23 @@ class SpotiDash:
         except Exception:
             return None
 
+    def get_recently_played(self, limit=50):
+        sp = self.get_spotipy_client()
+        if sp is None:
+            return None
+        try:
+            return sp.current_user_recently_played(limit=limit)
+        except Exception:
+            return None
+
+    def get_top_artists(self, limit=50, time_range="medium_term"):
+        sp = self.get_spotipy_client()
+        if sp is None:
+            return None
+        try:
+            return sp.current_user_top_artists(limit=limit, time_range=time_range)
+        except Exception:
+            return None
+
     def run(self, **kwargs):
         self.app.run(**kwargs)
