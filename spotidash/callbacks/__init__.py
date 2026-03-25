@@ -4,6 +4,115 @@ import time
 
 
 def register_callbacks(app, spotidash):
+    app.clientside_callback(
+        """
+        function(n_intervals) {
+            if (!document.visibilityState) return true;
+            return document.visibilityState === 'visible';
+        }
+        """,
+        Output("visibility-store", "data"),
+        Input("now-playing-interval", "n_intervals"),
+    )
+
+    @app.callback(
+        Output("top-tracks-cache", "data"),
+        Input("tracks-prefetch-interval", "n_intervals"),
+        Input("url", "pathname"),
+        State("top-tracks-cache", "data"),
+        prevent_initial_call=True,
+    )
+    def prefetch_top_tracks(n_intervals, pathname, cache_data):
+        if not spotidash.is_authenticated():
+            return dash.no_update
+        
+        if cache_data is None:
+            cache_data = {"recent": None, "short_term": None, "medium_term": None, "long_term": None}
+        
+        loaded = [k for k, v in cache_data.items() if v is not None]
+        
+        time_ranges = ["recent", "short_term", "medium_term", "long_term"]
+        next_range = None
+        for tr in time_ranges:
+            if tr not in loaded:
+                next_range = tr
+                break
+        
+        if next_range is None:
+            return cache_data
+        
+        if next_range == "recent":
+            data = spotidash.get_recently_played(limit=50)
+            if data:
+                track_play_counts = {}
+                for item in data.get("items", []):
+                    track = item.get("track", {})
+                    track_id = track.get("id")
+                    if track_id:
+                        if track_id in track_play_counts:
+                            track_play_counts[track_id]["count"] += 1
+                        else:
+                            track_play_counts[track_id] = {"track": track, "count": 1}
+                sorted_tracks = sorted(track_play_counts.values(), key=lambda x: (-x["count"], x["track"].get("name", "")))
+                cache_data[next_range] = {"items": [t["track"] for t in sorted_tracks[:50]]}
+            else:
+                cache_data[next_range] = {"items": []}
+        else:
+            data = spotidash.get_top_tracks(limit=50, time_range=next_range)
+            cache_data[next_range] = data if data else {"items": []}
+        
+        return cache_data
+
+    @app.callback(
+        Output("top-artists-cache", "data"),
+        Input("tracks-prefetch-interval", "n_intervals"),
+        State("top-artists-cache", "data"),
+        State("top-tracks-cache", "data"),
+        prevent_initial_call=True,
+    )
+    def prefetch_recent_artists(n_intervals, artists_cache, tracks_cache):
+        if not spotidash.is_authenticated():
+            return dash.no_update
+        
+        if artists_cache is None:
+            artists_cache = {}
+        
+        if "recent" in artists_cache:
+            return artists_cache
+        
+        if not tracks_cache or not tracks_cache.get("recent"):
+            return dash.no_update
+        
+        recent_tracks = tracks_cache.get("recent", {}).get("items", [])
+        
+        artist_scores = {}
+        for idx, track in enumerate(recent_tracks):
+            score = 51 - (idx + 1)
+            for artist in track.get("artists", []):
+                artist_id = artist.get("id")
+                if artist_id:
+                    if artist_id not in artist_scores:
+                        artist_scores[artist_id] = {"artist": artist, "score": 0, "track_count": 0}
+                    artist_scores[artist_id]["score"] += score
+                    artist_scores[artist_id]["track_count"] += 1
+        
+        sorted_artists = sorted(artist_scores.values(), key=lambda x: (-x["score"], x["artist"].get("name", "") if x["artist"] else ""))
+        
+        artists_list = [
+            {
+                "id": a["artist"].get("id") if a["artist"] else None,
+                "name": a["artist"].get("name") if a["artist"] else "Unknown",
+                "images": a["artist"].get("images", []) if a["artist"] else [],
+                "track_count": a["track_count"],
+                "score": a["score"],
+            }
+            for a in sorted_artists
+        ]
+        
+        artists_cache["recent"] = {"artists": artists_list}
+        
+        return artists_cache
+
     @app.callback(
         Output("login-container", "children"),
         Output("login-container", "style"),
@@ -35,13 +144,16 @@ def register_callbacks(app, spotidash):
         Input("now-playing-interval", "n_intervals"),
         Input("progress-interval", "n_intervals"),
         State("now-playing-store", "data"),
+        State("visibility-store", "data"),
         prevent_initial_call=True,
     )
-    def update_currently_playing(n_intervals, progress_n_intervals, store_data):
+    def update_currently_playing(n_intervals, progress_n_intervals, store_data, is_visible):
         triggered_id = dash.callback_context.triggered[0]["prop_id"].split(".")[0]
         is_spotify_fetch = triggered_id == "now-playing-interval"
         
         if is_spotify_fetch:
+            if not is_visible:
+                return dash.no_update, dash.no_update
             if not spotidash.is_authenticated():
                 return dash.no_update, ""
             fetch_start = time.time()
@@ -97,9 +209,10 @@ def register_callbacks(app, spotidash):
         State("top-tracks-store", "data"),
         State("favourites-store", "data"),
         State("filter-state-store", "data"),
+        State("top-tracks-cache", "data"),
         prevent_initial_call=False,
     )
-    def update_top_tracks(n_recent, n_4weeks, n_6months, n_alltime, n_10, n_25, n_50, n_fav_only, favourite_btns, pathname, store_data, favourites, filter_state):
+    def update_top_tracks(n_recent, n_4weeks, n_6months, n_alltime, n_10, n_25, n_50, n_fav_only, favourite_btns, pathname, store_data, favourites, filter_state, tracks_cache):
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -156,7 +269,11 @@ def register_callbacks(app, spotidash):
         if not spotidash.is_authenticated():
             return "", None, "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", [], filter_state
         
-        if time_range == "recent":
+        cached_tracks = tracks_cache.get(time_range) if tracks_cache else None
+        
+        if cached_tracks is not None:
+            tracks = cached_tracks
+        elif time_range == "recent":
             recent_tracks = spotidash.get_recently_played(limit=50)
             if recent_tracks:
                 track_play_counts = {}
@@ -207,6 +324,7 @@ def register_callbacks(app, spotidash):
         Output("btn-artist-count-12", "className"),
         Output("btn-artist-count-all", "className"),
         Output("artist-filter-store", "data"),
+        Output("top-artists-cache", "data", allow_duplicate=True),
         Input("btn-artist-recent", "n_clicks"),
         Input("btn-artist-4weeks", "n_clicks"),
         Input("btn-artist-6months", "n_clicks"),
@@ -217,9 +335,11 @@ def register_callbacks(app, spotidash):
         Input("url", "pathname"),
         State("top-artists-store", "data"),
         State("artist-filter-store", "data"),
-        prevent_initial_call=False,
+        State("top-artists-cache", "data"),
+        State("top-tracks-cache", "data"),
+        prevent_initial_call='initial_duplicate',
     )
-    def update_top_artists(n_recent, n_4weeks, n_6months, n_alltime, n_4, n_12, n_all, pathname, store_data, filter_state):
+    def update_top_artists(n_recent, n_4weeks, n_6months, n_alltime, n_4, n_12, n_all, pathname, store_data, filter_state, artists_cache, tracks_cache):
         ctx = dash.callback_context
         if not ctx.triggered:
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -258,59 +378,76 @@ def register_callbacks(app, spotidash):
         if not spotidash.is_authenticated():
             return "", None, "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", filter_state
         
-        artist_scores = {}
+        cached_data = artists_cache.get(time_range) if artists_cache else None
         
-        if time_range == "recent":
-            tracks = spotidash.get_recently_played(limit=50)
-            if tracks and tracks.get("items"):
-                for idx, item in enumerate(tracks.get("items", [])):
-                    track = item.get("track", {})
+        if cached_data is not None:
+            artists_list = cached_data.get("artists", [])
+        else:
+            track_artist_scores = {}
+            
+            cached_tracks = tracks_cache.get(time_range) if tracks_cache else None
+            
+            if time_range == "recent":
+                if cached_tracks:
+                    tracks_items = cached_tracks.get("items", [])
+                else:
+                    recent_data = spotidash.get_recently_played(limit=50)
+                    tracks_items = [item.get("track", {}) for item in recent_data.get("items", [])] if recent_data else []
+            else:
+                if cached_tracks:
+                    tracks_items = cached_tracks.get("items", [])
+                else:
+                    tracks_data = spotidash.get_top_tracks(limit=50, time_range=time_range)
+                    tracks_items = tracks_data.get("items", []) if tracks_data else []
+            
+            if tracks_items:
+                for idx, track in enumerate(tracks_items):
                     score = 51 - (idx + 1)
                     for artist in track.get("artists", []):
                         artist_id = artist.get("id")
                         if artist_id:
-                            if artist_id not in artist_scores:
-                                artist_scores[artist_id] = {"artist": artist, "score": 0, "track_count": 0}
-                            artist_scores[artist_id]["score"] += score
-                            artist_scores[artist_id]["track_count"] += 1
-        else:
-            top_artists = spotidash.get_top_artists(limit=count, time_range=time_range)
+                            if artist_id not in track_artist_scores:
+                                track_artist_scores[artist_id] = {"score": 0, "track_count": 0, "artist_obj": artist}
+                            track_artist_scores[artist_id]["score"] += score
+                            track_artist_scores[artist_id]["track_count"] += 1
+            
+            top_artists = spotidash.get_top_artists(limit=42, time_range=time_range)
+            
+            artist_scores = {}
             if top_artists and top_artists.get("items"):
-                tracks = spotidash.get_top_tracks(limit=50, time_range=time_range)
-                track_artist_scores = {}
-                if tracks and tracks.get("items"):
-                    for idx, item in enumerate(tracks.get("items", [])):
-                        track = item.get("track", {})
-                        score = 51 - (idx + 1)
-                        for artist in track.get("artists", []):
-                            artist_id = artist.get("id")
-                            if artist_id:
-                                if artist_id not in track_artist_scores:
-                                    track_artist_scores[artist_id] = 0
-                                track_artist_scores[artist_id] += score
-                
                 for artist in top_artists["items"]:
                     artist_id = artist.get("id")
                     if artist_id in track_artist_scores:
-                        track_count = sum(1 for t in tracks.get("items", []) 
-                            if any(artist_id == ar.get("id") for ar in t.get("track", {}).get("artists", [])))
                         artist_scores[artist_id] = {
                             "artist": artist,
-                            "score": track_artist_scores.get(artist_id, 0),
-                            "track_count": track_count,
+                            "score": track_artist_scores[artist_id]["score"],
+                            "track_count": track_artist_scores[artist_id]["track_count"],
                         }
-        sorted_artists = sorted(artist_scores.values(), key=lambda x: (-x["score"], x["artist"].get("name", "") if x["artist"] else ""))
+                    else:
+                        artist_scores[artist_id] = {
+                            "artist": artist,
+                            "score": 0,
+                            "track_count": 0,
+                        }
+            
+            scored_artists = sorted(artist_scores.values(), key=lambda x: (-x["score"], x["artist"].get("name", "") if x["artist"] else ""))
+            
+            artists_list = [
+                {
+                    "id": a["artist"].get("id") if a["artist"] else None,
+                    "name": a["artist"].get("name") if a["artist"] else "Unknown",
+                    "images": a["artist"].get("images", []) if a["artist"] else [],
+                    "track_count": a["track_count"],
+                    "score": a["score"],
+                }
+                for a in scored_artists
+            ]
+            
+            if artists_cache is None:
+                artists_cache = {}
+            artists_cache[time_range] = {"artists": artists_list}
         
-        artist_data = {"artists": [
-            {
-                "id": a["artist"].get("id") if a["artist"] else None,
-                "name": a["artist"].get("name") if a["artist"] else "Unknown",
-                "images": a["artist"].get("images", []) if a["artist"] else [],
-                "track_count": a["track_count"],
-                "score": a["score"],
-            }
-            for a in sorted_artists[:count]
-        ]}
+        artist_data = {"artists": artists_list}
         
         time_range_labels = {
             "recent": "Recent",
@@ -330,4 +467,4 @@ def register_callbacks(app, spotidash):
         
         content = spotidash.layout_builder.build_top_artists(artist_data, display_label, count)
         
-        return content, artist_data, btn_recent, btn_4weeks, btn_6months, btn_alltime, btn_4, btn_12, btn_all, filter_state
+        return content, artist_data, btn_recent, btn_4weeks, btn_6months, btn_alltime, btn_4, btn_12, btn_all, filter_state, artists_cache

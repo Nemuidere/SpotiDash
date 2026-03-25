@@ -20,8 +20,12 @@ class LayoutBuilder:
             dcc.Store(id="favourites-store", data=[]),
             dcc.Store(id="filter-state-store", data={"time_range": "medium_term", "count": 50, "show_favourites_only": False}),
             dcc.Store(id="artist-filter-store", data={"time_range": "short_term", "count": 12}),
-            dcc.Interval(id="now-playing-interval", interval=5000),
+            dcc.Interval(id="now-playing-interval", interval=10000),
+            dcc.Store(id="visibility-store", data=True),
             dcc.Interval(id="progress-interval", interval=1000),
+            dcc.Store(id="top-tracks-cache", data=None),
+            dcc.Interval(id="tracks-prefetch-interval", interval=2000, max_intervals=4),
+            dcc.Store(id="top-artists-cache", data=None),
             html.Div([
                 html.Div(id="login-container", style={
                     "backgroundColor": self.styles["bg"],
