@@ -250,9 +250,7 @@ class LayoutBuilder:
                                     "Recent",
                                     id="btn-artist-recent",
                                     n_clicks=0,
-                                    className="time-range-btn",
-                                    disabled=True,
-                                    style={"opacity": "0.4", "cursor": "not-allowed"}
+                                    className="time-range-btn"
                                 ),
                                 html.Button(
                                     "4 Weeks",
@@ -291,12 +289,10 @@ class LayoutBuilder:
                                     className="time-range-btn"
                                 ),
                                 html.Button(
-                                    "All",
-                                    id="btn-artist-count-all",
+                                    "24",
+                                    id="btn-artist-count-24",
                                     n_clicks=0,
-                                    className="time-range-btn",
-                                    disabled=True,
-                                    style={"opacity": "0.4", "cursor": "not-allowed"}
+                                    className="time-range-btn"
                                 ),
                             ], style={
                                 "display": "flex",
@@ -641,6 +637,7 @@ class LayoutBuilder:
                     "color": self.styles["text_muted"],
                     "fontSize": "12px",
                     "textAlign": "center",
+                    "display": "none",
                 }),
             ], style={
                 "width": "24%",

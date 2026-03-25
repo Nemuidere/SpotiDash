@@ -96,6 +96,20 @@ def register_callbacks(app, spotidash):
                     artist_scores[artist_id]["score"] += score
                     artist_scores[artist_id]["track_count"] += 1
         
+        for artist_id, data in artist_scores.items():
+            images = data["artist"].get("images", [])
+            if not images:
+                for other_range in ["short_term", "medium_term", "long_term"]:
+                    other_data = artists_cache.get(other_range, {}).get("artists", [])
+                    for other_artist in other_data:
+                        if other_artist.get("id") == artist_id:
+                            other_images = other_artist.get("images", [])
+                            if other_images:
+                                data["artist"]["images"] = other_images
+                                break
+                    if data["artist"].get("images"):
+                        break
+        
         sorted_artists = sorted(artist_scores.values(), key=lambda x: (-x["score"], x["artist"].get("name", "") if x["artist"] else ""))
         
         artists_list = [
@@ -219,11 +233,8 @@ def register_callbacks(app, spotidash):
         
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
         
-        if favourites is None:
-            favourites = []
-        
         if filter_state is None:
-            filter_state = {"time_range": "medium_term", "count": 50, "show_favourites_only": False}
+            filter_state = {"time_range": "short_term", "count": 12}
         
         time_range = filter_state.get("time_range", "medium_term")
         count = filter_state.get("count", 50)
@@ -322,7 +333,7 @@ def register_callbacks(app, spotidash):
         Output("btn-artist-alltime", "className"),
         Output("btn-artist-count-4", "className"),
         Output("btn-artist-count-12", "className"),
-        Output("btn-artist-count-all", "className"),
+        Output("btn-artist-count-24", "className"),
         Output("artist-filter-store", "data"),
         Output("top-artists-cache", "data", allow_duplicate=True),
         Input("btn-artist-recent", "n_clicks"),
@@ -331,7 +342,7 @@ def register_callbacks(app, spotidash):
         Input("btn-artist-alltime", "n_clicks"),
         Input("btn-artist-count-4", "n_clicks"),
         Input("btn-artist-count-12", "n_clicks"),
-        Input("btn-artist-count-all", "n_clicks"),
+        Input("btn-artist-count-24", "n_clicks"),
         Input("url", "pathname"),
         State("top-artists-store", "data"),
         State("artist-filter-store", "data"),
@@ -339,10 +350,10 @@ def register_callbacks(app, spotidash):
         State("top-tracks-cache", "data"),
         prevent_initial_call='initial_duplicate',
     )
-    def update_top_artists(n_recent, n_4weeks, n_6months, n_alltime, n_4, n_12, n_all, pathname, store_data, filter_state, artists_cache, tracks_cache):
+    def update_top_artists(n_recent, n_4weeks, n_6months, n_alltime, n_4, n_12, n_24, pathname, store_data, filter_state, artists_cache, tracks_cache):
         ctx = dash.callback_context
         if not ctx.triggered:
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
         
         triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
         
@@ -362,7 +373,7 @@ def register_callbacks(app, spotidash):
         counts = {
             "btn-artist-count-4": 4,
             "btn-artist-count-12": 12,
-            "btn-artist-count-all": 12,
+            "btn-artist-count-24": 24,
         }
         
         if triggered_id in time_ranges:
@@ -376,12 +387,26 @@ def register_callbacks(app, spotidash):
         filter_state = {"time_range": time_range, "count": count}
         
         if not spotidash.is_authenticated():
-            return "", None, "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", filter_state
+            return "", None, "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", "time-range-btn", filter_state, artists_cache
         
         cached_data = artists_cache.get(time_range) if artists_cache else None
         
         if cached_data is not None:
             artists_list = cached_data.get("artists", [])
+            if time_range == "recent":
+                for artist in artists_list:
+                    if not artist.get("images"):
+                        artist_id = artist.get("id")
+                        for other_range in ["short_term", "medium_term", "long_term"]:
+                            other_data = artists_cache.get(other_range, {}).get("artists", []) if artists_cache else []
+                            for other_artist in other_data:
+                                if other_artist.get("id") == artist_id:
+                                    other_images = other_artist.get("images", [])
+                                    if other_images:
+                                        artist["images"] = other_images
+                                        break
+                            if artist.get("images"):
+                                break
         else:
             track_artist_scores = {}
             
@@ -411,24 +436,45 @@ def register_callbacks(app, spotidash):
                             track_artist_scores[artist_id]["score"] += score
                             track_artist_scores[artist_id]["track_count"] += 1
             
-            top_artists = spotidash.get_top_artists(limit=42, time_range=time_range)
-            
             artist_scores = {}
-            if top_artists and top_artists.get("items"):
-                for artist in top_artists["items"]:
-                    artist_id = artist.get("id")
-                    if artist_id in track_artist_scores:
-                        artist_scores[artist_id] = {
-                            "artist": artist,
-                            "score": track_artist_scores[artist_id]["score"],
-                            "track_count": track_artist_scores[artist_id]["track_count"],
-                        }
-                    else:
-                        artist_scores[artist_id] = {
-                            "artist": artist,
-                            "score": 0,
-                            "track_count": 0,
-                        }
+            
+            if time_range == "recent":
+                for artist_id, data in track_artist_scores.items():
+                    images = data["artist_obj"].get("images", [])
+                    if not images:
+                        for other_range in ["short_term", "medium_term", "long_term"]:
+                            other_data = artists_cache.get(other_range, {}).get("artists", []) if artists_cache else []
+                            for other_artist in other_data:
+                                if other_artist.get("id") == artist_id:
+                                    other_images = other_artist.get("images", [])
+                                    if other_images:
+                                        data["artist_obj"]["images"] = other_images
+                                        break
+                            if data["artist_obj"].get("images"):
+                                break
+                    artist_scores[artist_id] = {
+                        "artist": data["artist_obj"],
+                        "score": data["score"],
+                        "track_count": data["track_count"],
+                    }
+            else:
+                top_artists = spotidash.get_top_artists(limit=42, time_range=time_range)
+                
+                if top_artists and top_artists.get("items"):
+                    for artist in top_artists["items"]:
+                        artist_id = artist.get("id")
+                        if artist_id in track_artist_scores:
+                            artist_scores[artist_id] = {
+                                "artist": artist,
+                                "score": track_artist_scores[artist_id]["score"],
+                                "track_count": track_artist_scores[artist_id]["track_count"],
+                            }
+                        else:
+                            artist_scores[artist_id] = {
+                                "artist": artist,
+                                "score": 0,
+                                "track_count": 0,
+                            }
             
             scored_artists = sorted(artist_scores.values(), key=lambda x: (-x["score"], x["artist"].get("name", "") if x["artist"] else ""))
             
@@ -463,8 +509,8 @@ def register_callbacks(app, spotidash):
         btn_alltime = "time-range-btn active" if time_range == "long_term" else "time-range-btn"
         btn_4 = "time-range-btn active" if count == 4 else "time-range-btn"
         btn_12 = "time-range-btn active" if count == 12 else "time-range-btn"
-        btn_all = "time-range-btn active" if count == 50 else "time-range-btn"
+        btn_24 = "time-range-btn active" if count == 24 else "time-range-btn"
         
         content = spotidash.layout_builder.build_top_artists(artist_data, display_label, count)
         
-        return content, artist_data, btn_recent, btn_4weeks, btn_6months, btn_alltime, btn_4, btn_12, btn_all, filter_state, artists_cache
+        return content, artist_data, btn_recent, btn_4weeks, btn_6months, btn_alltime, btn_4, btn_12, btn_24, filter_state, artists_cache
