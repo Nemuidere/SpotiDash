@@ -93,6 +93,227 @@ class LayoutBuilder:
             }),
         ])
 
+    def build_dashboard_columns(self, user=None):
+        # Retrieve track_count and artist_count from filter state stores (default to 10/12)
+        # In Dash, these are set via dcc.Store, so we use the default values for static layout
+        track_count = 10
+        artist_count = 12
+
+        # Estimate heights
+        track_block_height = 120 + 70 * track_count
+        artist_rows = max(1, (artist_count + 3) // 4)
+        artist_block_height = 120 + 110 * artist_rows
+
+        # Build Top Tracks block (as currently rendered)
+        top_tracks_block = html.Div([
+            html.H3("Top Tracks", style={
+                "fontSize": "18px",
+                "fontWeight": "600",
+                "margin": "0 0 16px 0",
+            }),
+            html.Div([
+                html.Button(
+                    "Recent",
+                    id="btn-time-recent",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "4 Weeks",
+                    id="btn-time-4weeks",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "6 Months",
+                    id="btn-time-6months",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "All Time",
+                    id="btn-time-alltime",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+            ], style={
+                "display": "flex",
+                "gap": "8px",
+                "marginBottom": "16px",
+            }),
+            html.Div([
+                html.Button(
+                    "10",
+                    id="btn-count-10",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "25",
+                    id="btn-count-25",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "50",
+                    id="btn-count-50",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+            ], style={
+                "display": "flex",
+                "gap": "8px",
+                "marginBottom": "16px",
+            }),
+            html.Div([
+                html.Button(
+                    "★ Favourites Only",
+                    id="btn-favourites-only",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+            ], style={
+                "display": "flex",
+                "gap": "8px",
+                "marginBottom": "24px",
+            }),
+            html.Div(id="top-tracks-container"),
+        ], style={
+            "backgroundColor": self.styles["card_bg"],
+            "borderRadius": self.styles["border_radius"],
+            "padding": "24px",
+            "border": "1px solid rgba(255, 255, 255, 0.05)",
+            "minWidth": "320px",
+            "width": "100%",
+            "marginBottom": "24px",
+            "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
+        })
+
+        # Build Top Artists block (as currently rendered)
+        top_artists_block = html.Div([
+            html.H3("Top Artists", style={
+                "fontSize": "18px",
+                "fontWeight": "600",
+                "margin": "0 0 16px 0",
+            }),
+            html.Div([
+                html.Button(
+                    "Recent",
+                    id="btn-artist-recent",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "4 Weeks",
+                    id="btn-artist-4weeks",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "6 Months",
+                    id="btn-artist-6months",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "All Time",
+                    id="btn-artist-alltime",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+            ], style={
+                "display": "flex",
+                "gap": "8px",
+                "marginBottom": "16px",
+            }),
+            html.Div([
+                html.Button(
+                    "4",
+                    id="btn-artist-count-4",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "12",
+                    id="btn-artist-count-12",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+                html.Button(
+                    "24",
+                    id="btn-artist-count-24",
+                    n_clicks=0,
+                    className="time-range-btn"
+                ),
+            ], style={
+                "display": "flex",
+                "gap": "8px",
+                "marginBottom": "24px",
+            }),
+            html.Div(id="top-artists-container"),
+        ], style={
+            "backgroundColor": self.styles["card_bg"],
+            "borderRadius": self.styles["border_radius"],
+            "padding": "24px",
+            "border": "1px solid rgba(255, 255, 255, 0.05)",
+            "minWidth": "320px",
+            "width": "100%",
+            "marginBottom": "24px",
+            "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
+        })
+
+        # Placeholder block
+        placeholder_block = html.Div(
+            "Placeholder",
+            style={
+                "backgroundColor": self.styles["card_bg"],
+                "borderRadius": self.styles["border_radius"],
+                "padding": "32px 0",
+                "border": "1px solid rgba(255, 255, 255, 0.05)",
+                "textAlign": "center",
+                "fontSize": "18px",
+                "color": self.styles["text_muted"],
+                "marginBottom": "24px",
+                "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
+            }
+        )
+
+        # Assign blocks to columns based on estimated height
+        left_column = [top_tracks_block]
+        right_column = [top_artists_block]
+        if track_block_height > artist_block_height:
+            right_column.append(placeholder_block)
+        else:
+            left_column.append(placeholder_block)
+
+        # Responsive two-column flex layout
+        columns = html.Div([
+            html.Div(left_column, style={
+                "flex": "1 1 0",
+                "minWidth": "320px",
+                "maxWidth": "900px",
+                "display": "flex",
+                "flexDirection": "column",
+                "gap": "24px",
+            }),
+            html.Div(right_column, style={
+                "flex": "1 1 0",
+                "minWidth": "320px",
+                "maxWidth": "900px",
+                "display": "flex",
+                "flexDirection": "column",
+                "gap": "24px",
+            }),
+        ], style={
+            "display": "flex",
+            "gap": "24px",
+            "alignItems": "flex-start",
+            "width": "100%",
+            "flexWrap": "wrap",
+        },
+        )
+        return columns
+
     def build_dashboard(self, user=None):
         greeting = f"Welcome, {user.get('display_name', 'User')}!" if user else "Welcome!"
         avatar_url = user.get("images", [{}])[0].get("url") if user else None
@@ -157,163 +378,7 @@ class LayoutBuilder:
                             "color": self.styles["text_muted"],
                         }),
                     ], style={"marginBottom": "24px"}),
-                    html.Div([
-                        html.Div([
-                            html.H3("Top Tracks", style={
-                                "fontSize": "18px",
-                                "fontWeight": "600",
-                                "margin": "0 0 16px 0",
-                            }),
-                            html.Div([
-                                html.Button(
-                                    "Recent",
-                                    id="btn-time-recent",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "4 Weeks",
-                                    id="btn-time-4weeks",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "6 Months",
-                                    id="btn-time-6months",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "All Time",
-                                    id="btn-time-alltime",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                            ], style={
-                                "display": "flex",
-                                "gap": "8px",
-                                "marginBottom": "16px",
-                            }),
-                            html.Div([
-                                html.Button(
-                                    "10",
-                                    id="btn-count-10",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "25",
-                                    id="btn-count-25",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "50",
-                                    id="btn-count-50",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                            ], style={
-                                "display": "flex",
-                                "gap": "8px",
-                                "marginBottom": "16px",
-                            }),
-                            html.Div([
-                                html.Button(
-                                    "★ Favourites Only",
-                                    id="btn-favourites-only",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                            ], style={
-                                "display": "flex",
-                                "gap": "8px",
-                                "marginBottom": "24px",
-                            }),
-                            html.Div(id="top-tracks-container"),
-                        ], style={
-                            "backgroundColor": self.styles["card_bg"],
-                            "borderRadius": self.styles["border_radius"],
-                            "padding": "24px",
-                            "border": "1px solid rgba(255, 255, 255, 0.05)",
-                            "flex": "1",
-                            "minWidth": "400px",
-                        }),
-                        html.Div([
-                            html.H3("Top Artists", style={
-                                "fontSize": "18px",
-                                "fontWeight": "600",
-                                "margin": "0 0 16px 0",
-                            }),
-                            html.Div([
-                                html.Button(
-                                    "Recent",
-                                    id="btn-artist-recent",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "4 Weeks",
-                                    id="btn-artist-4weeks",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "6 Months",
-                                    id="btn-artist-6months",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "All Time",
-                                    id="btn-artist-alltime",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                            ], style={
-                                "display": "flex",
-                                "gap": "8px",
-                                "marginBottom": "16px",
-                            }),
-                            html.Div([
-                                html.Button(
-                                    "4",
-                                    id="btn-artist-count-4",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "12",
-                                    id="btn-artist-count-12",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                                html.Button(
-                                    "24",
-                                    id="btn-artist-count-24",
-                                    n_clicks=0,
-                                    className="time-range-btn"
-                                ),
-                            ], style={
-                                "display": "flex",
-                                "gap": "8px",
-                                "marginBottom": "24px",
-                            }),
-                            html.Div(id="top-artists-container"),
-                        ], style={
-                            "backgroundColor": self.styles["card_bg"],
-                            "borderRadius": self.styles["border_radius"],
-                            "padding": "24px",
-                            "border": "1px solid rgba(255, 255, 255, 0.05)",
-                            "flex": "1",
-                            "minWidth": "400px",
-                        }),
-                    ], style={
-                        "display": "flex",
-                        "gap": "24px",
-                        "flexWrap": "wrap",
-                        "alignItems": "flex-start",
-                    }),
+                    self.build_dashboard_columns(user),
                 ], style={
                     "padding": "0 32px",
                     "maxWidth": "1850px",
