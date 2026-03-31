@@ -26,6 +26,8 @@ class LayoutBuilder:
             dcc.Store(id="top-tracks-cache", data=None),
             dcc.Interval(id="tracks-prefetch-interval", interval=2000, max_intervals=4),
             dcc.Store(id="top-artists-cache", data=None),
+            dcc.Store(id="genre-filter-store", data={"time_range": "medium_term"}),
+            dcc.Store(id="recently-played-cache", data=None),
             html.Div([
                 html.Div(id="login-container", style={
                     "backgroundColor": self.styles["bg"],
@@ -262,29 +264,87 @@ class LayoutBuilder:
             "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
         })
 
-        # Placeholder block
-        placeholder_block = html.Div(
-            "Placeholder",
-            style={
-                "backgroundColor": self.styles["card_bg"],
-                "borderRadius": self.styles["border_radius"],
-                "padding": "32px 0",
-                "border": "1px solid rgba(255, 255, 255, 0.05)",
-                "textAlign": "center",
+        # Stats Panel block
+        stats_panel_block = html.Div([
+            html.H3("Stats", style={
                 "fontSize": "18px",
-                "color": self.styles["text_muted"],
-                "marginBottom": "24px",
-                "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
-            }
-        )
+                "fontWeight": "600",
+                "margin": "0 0 16px 0",
+            }),
+            # Listening Time graph
+            html.Div([
+                html.H4("Listening Time", style={
+                    "fontSize": "16px",
+                    "fontWeight": "500",
+                    "margin": "0 0 12px 0",
+                    "color": self.styles["text"],
+                }),
+                dcc.Loading(
+                    html.Div(id="listening-time-container", style={
+                        "minHeight": "300px",
+                    }),
+                    type="default",
+                    color="#4A90D9",
+                ),
+            ], style={"marginBottom": "24px"}),
+            # Genre Evolution graph with time range buttons
+            html.Div([
+                html.H4("Genre Evolution", style={
+                    "fontSize": "16px",
+                    "fontWeight": "500",
+                    "margin": "0 0 12px 0",
+                    "color": self.styles["text"],
+                }),
+                html.Div([
+                    html.Button(
+                        "4 Weeks",
+                        id="btn-genre-4weeks",
+                        n_clicks=0,
+                        className="time-range-btn"
+                    ),
+                    html.Button(
+                        "6 Months",
+                        id="btn-genre-6months",
+                        n_clicks=0,
+                        className="time-range-btn active"
+                    ),
+                    html.Button(
+                        "All Time",
+                        id="btn-genre-alltime",
+                        n_clicks=0,
+                        className="time-range-btn"
+                    ),
+                ], style={
+                    "display": "flex",
+                    "gap": "8px",
+                    "marginBottom": "12px",
+                }),
+                dcc.Loading(
+                    html.Div(id="genre-stats-container", style={
+                        "minHeight": "300px",
+                    }),
+                    type="default",
+                    color="#4A90D9",
+                ),
+            ], style={}),
+        ], style={
+            "backgroundColor": self.styles["card_bg"],
+            "borderRadius": self.styles["border_radius"],
+            "padding": "24px",
+            "border": "1px solid rgba(255, 255, 255, 0.05)",
+            "minWidth": "320px",
+            "width": "100%",
+            "marginBottom": "24px",
+            "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
+        })
 
         # Assign blocks to columns based on estimated height
         left_column = [top_tracks_block]
         right_column = [top_artists_block]
         if track_block_height > artist_block_height:
-            right_column.append(placeholder_block)
+            right_column.append(stats_panel_block)
         else:
-            left_column.append(placeholder_block)
+            left_column.append(stats_panel_block)
 
         # Responsive two-column flex layout
         columns = html.Div([

@@ -1,6 +1,10 @@
 from dash.dependencies import Input, Output, State, ALL
 import dash
+import dash.html as html
 import time
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from ..utils.stats import extract_listening_time_distribution, aggregate_genres
 
 
 def register_callbacks(app, spotidash):
@@ -126,6 +130,32 @@ def register_callbacks(app, spotidash):
         artists_cache["recent"] = {"artists": artists_list}
         
         return artists_cache
+
+    @app.callback(
+        Output("recently-played-cache", "data"),
+        Input("tracks-prefetch-interval", "n_intervals"),
+        State("recently-played-cache", "data"),
+        prevent_initial_call=True,
+    )
+    def prefetch_recently_played(n_intervals, recently_played_cache):
+        if not spotidash.is_authenticated():
+            return dash.no_update
+        
+        # Only fetch once - check if cache already has data
+        if recently_played_cache and recently_played_cache.get("items"):
+            return dash.no_update
+        
+        data = spotidash.get_recently_played(limit=50)
+        if data:
+            # Store raw data with played_at timestamps
+            return {
+                "items": [
+                    {"track": item.get("track", {}), "played_at": item.get("played_at")}
+                    for item in data.get("items", [])
+                ]
+            }
+        
+        return {"items": []}
 
     @app.callback(
         Output("login-container", "children"),
@@ -272,7 +302,7 @@ def register_callbacks(app, spotidash):
                         favourites = [f for f in favourites if f != track_id]
                     else:
                         favourites = list(favourites) + [track_id]
-            except:
+            except Exception:
                 pass
         
         filter_state = {"time_range": time_range, "count": count, "show_favourites_only": show_favourites_only}
@@ -483,18 +513,19 @@ def register_callbacks(app, spotidash):
                     "id": a["artist"].get("id") if a["artist"] else None,
                     "name": a["artist"].get("name") if a["artist"] else "Unknown",
                     "images": a["artist"].get("images", []) if a["artist"] else [],
+                    "genres": a["artist"].get("genres", []) if a["artist"] else [],
                     "track_count": a["track_count"],
                     "score": a["score"],
                 }
                 for a in scored_artists
             ]
-            
+
             if artists_cache is None:
                 artists_cache = {}
             artists_cache[time_range] = {"artists": artists_list}
-        
+
         artist_data = {"artists": artists_list}
-        
+
         time_range_labels = {
             "recent": "Recent",
             "short_term": "4 Weeks",
@@ -514,3 +545,240 @@ def register_callbacks(app, spotidash):
         content = spotidash.layout_builder.build_top_artists(artist_data, display_label, count)
         
         return content, artist_data, btn_recent, btn_4weeks, btn_6months, btn_alltime, btn_4, btn_12, btn_24, filter_state, artists_cache
+
+    # =============================================================================
+    # Stats Panel Callbacks
+    # =============================================================================
+
+    # =============================================================================
+    # Stats Panel Callbacks
+    # =============================================================================
+
+    @app.callback(
+        Output("genre-filter-store", "data"),
+        Output("btn-genre-4weeks", "className"),
+        Output("btn-genre-6months", "className"),
+        Output("btn-genre-alltime", "className"),
+        Input("btn-genre-4weeks", "n_clicks"),
+        Input("btn-genre-6months", "n_clicks"),
+        Input("btn-genre-alltime", "n_clicks"),
+        State("genre-filter-store", "data"),
+        prevent_initial_call=True,
+    )
+    def toggle_genre_time_range(n_4weeks, n_6months, n_alltime, filter_state):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+        if filter_state is None:
+            filter_state = {"time_range": "medium_term"}
+
+        time_range = filter_state.get("time_range", "medium_term")
+
+        time_ranges = {
+            "btn-genre-4weeks": "short_term",
+            "btn-genre-6months": "medium_term",
+            "btn-genre-alltime": "long_term",
+        }
+
+        triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+        if triggered_id in time_ranges:
+            time_range = time_ranges[triggered_id]
+
+        filter_state = {"time_range": time_range}
+
+        btn_4weeks = "time-range-btn active" if time_range == "short_term" else "time-range-btn"
+        btn_6months = "time-range-btn active" if time_range == "medium_term" else "time-range-btn"
+        btn_alltime = "time-range-btn active" if time_range == "long_term" else "time-range-btn"
+
+        return filter_state, btn_4weeks, btn_6months, btn_alltime
+
+    # =============================================================================
+    # Individual Graph Callbacks
+    # =============================================================================
+
+    @app.callback(
+        Output("listening-time-container", "children"),
+        Input("recently-played-cache", "data"),
+    )
+    def update_listening_time_graph(recently_played):
+        if not recently_played:
+            return html.Div(
+                "No listening data available",
+                style={"color": "#888888", "textAlign": "center", "padding": "40px"}
+            )
+        return render_listening_time_graph(recently_played)
+
+    @app.callback(
+        Output("genre-stats-container", "children"),
+        Input("top-artists-cache", "data"),
+        Input("genre-filter-store", "data"),
+    )
+    def update_genre_stats_graph(artists_cache, genre_filter):
+        if not artists_cache:
+            return html.Div(
+                "No artist data available",
+                style={"color": "#888888", "textAlign": "center", "padding": "40px"}
+            )
+        return render_genre_graph(artists_cache, genre_filter)
+
+    # =============================================================================
+    # Stats Graph Helper Functions
+    # =============================================================================
+
+    def render_listening_time_graph(recently_played):
+        if not recently_played or not recently_played.get("items"):
+            return html.Div(
+                "No listening history available",
+                style={"color": "#888888", "textAlign": "center", "padding": "40px"}
+            )
+        
+        distribution = extract_listening_time_distribution(recently_played)
+        if not distribution:
+            return html.Div(
+                "Unable to analyze listening patterns",
+                style={"color": "#888888", "textAlign": "center", "padding": "40px"}
+            )
+        
+        hour_dist = distribution.get("hour_distribution", {})
+        day_dist = distribution.get("day_distribution", {})
+        
+        hours = list(range(24))
+        hour_values = [hour_dist.get(h, 0) for h in hours]
+        
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        day_values = [day_dist.get(d, 0) for d in range(7)]
+        
+        fig = make_subplots(
+            rows=2, cols=1,
+            subplot_titles=('Listening by Hour of Day', 'Listening by Day of Week'),
+            vertical_spacing=0.15,
+        )
+        
+        fig.add_trace(
+            go.Bar(
+                x=hours,
+                y=hour_values,
+                marker_color='#4A90D9',
+                name='Hourly',
+                hovertemplate='Hour %{x}:00<br>%{y} plays<extra></extra>',
+            ),
+            row=1, col=1
+        )
+        
+        fig.add_trace(
+            go.Bar(
+                x=days,
+                y=day_values,
+                marker_color='#6BA3E0',
+                name='Daily',
+                hovertemplate='%{x}<br>%{y} plays<extra></extra>',
+            ),
+            row=2, col=1
+        )
+        
+        fig.update_layout(
+            paper_bgcolor='#1E1E1E',
+            plot_bgcolor='#1E1E1E',
+            showlegend=False,
+            margin=dict(l=50, r=20, t=60, b=40),
+            title=dict(
+                text='When You Listen to Music',
+                font=dict(color='#F0F0F0', size=16),
+                x=0.5,
+            ),
+        )
+        
+        fig.update_xaxes(
+            tickfont=dict(color='#888888', size=10),
+            gridcolor='rgba(255, 255, 255, 0.05)',
+            linecolor='rgba(255, 255, 255, 0.1)',
+        )
+        fig.update_yaxes(
+            tickfont=dict(color='#888888', size=10),
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            linecolor='rgba(255, 255, 255, 0.1)',
+            title_text='Plays',
+            title_font=dict(color='#888888', size=10),
+        )
+        
+        fig.update_annotations(font=dict(color='#F0F0F0', size=12))
+        
+        return html.Div([
+            dash.dcc.Graph(
+                figure=fig,
+                config={'displayModeBar': False},
+                style={'height': '500px'}
+            ),
+            html.P(
+                "Based on last 50 tracks (Spotify API limit)",
+                style={"color": "#888888", "fontSize": "11px", "textAlign": "center", "marginTop": "8px"}
+            ),
+        ], style={'backgroundColor': '#1E1E1E', 'borderRadius': '12px', 'padding': '16px'})
+
+    def render_genre_graph(artists_cache, filter_state):
+        time_range = filter_state.get("time_range", "medium_term") if filter_state else "medium_term"
+        
+        artists_data = artists_cache.get(time_range) if artists_cache else None
+        if not artists_data:
+            return html.Div(
+                "No artist data available",
+                style={"color": "#888888", "textAlign": "center", "padding": "40px"}
+            )
+        
+        top_genres = aggregate_genres(artists_data)
+        if not top_genres:
+            return html.Div(
+                "No genre data available",
+                style={"color": "#888888", "textAlign": "center", "padding": "40px"}
+            )
+        
+        genres = [g[0].title() for g in top_genres]
+        counts = [g[1] for g in top_genres]
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            x=counts,
+            y=genres,
+            orientation='h',
+            marker=dict(
+                color='#4A90D9',
+                line=dict(color='#6BA3E0', width=1)
+            ),
+            hovertemplate='%{y}<br>%{x} artists<extra></extra>',
+        ))
+        
+        fig.update_layout(
+            paper_bgcolor='#1E1E1E',
+            plot_bgcolor='#1E1E1E',
+            margin=dict(l=120, r=20, t=60, b=40),
+            title=dict(
+                text='Your Top Genres',
+                font=dict(color='#F0F0F0', size=16),
+                x=0.5,
+            ),
+            xaxis=dict(
+                title='Number of Artists',
+                titlefont=dict(color='#888888', size=10),
+                tickfont=dict(color='#888888', size=10),
+                gridcolor='rgba(255, 255, 255, 0.1)',
+                linecolor='rgba(255, 255, 255, 0.1)',
+            ),
+            yaxis=dict(
+                tickfont=dict(color='#F0F0F0', size=11),
+                gridcolor='rgba(255, 255, 255, 0.05)',
+                linecolor='rgba(255, 255, 255, 0.1)',
+                autorange='reversed',
+            ),
+        )
+        
+        return html.Div(
+            dash.dcc.Graph(
+                figure=fig,
+                config={'displayModeBar': False},
+                style={'height': '400px'}
+            ),
+            style={'backgroundColor': '#1E1E1E', 'borderRadius': '12px', 'padding': '16px'}
+        )

@@ -1,6 +1,5 @@
-from flask import Flask, session, redirect, request
+from flask import session, redirect, request
 from dash import Dash
-from dash.dependencies import Input, Output
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from spotipy.cache_handler import FlaskSessionCacheHandler
@@ -84,7 +83,7 @@ class SpotiDash:
         token_info = self.cache_handler.get_cached_token()
         if token_info is None:
             return None
-        return spotipy.Spotify(auth=token_info["access_token"])
+        return spotipy.Spotify(auth_manager=self.sp_oauth)
 
     def get_currently_playing(self):
         sp = self.get_spotipy_client()
