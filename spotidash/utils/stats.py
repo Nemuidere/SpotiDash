@@ -180,22 +180,12 @@ def aggregate_genres(artists_data):
         List of (genre, count) tuples sorted by count descending, max 10 items.
         Or None if no genres.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    # Debug logging
-    logger.debug(f"[Genre Debug] aggregate_genres received: type={type(artists_data)}, value sample={str(artists_data)[:200] if artists_data else 'None'}")
-    
     # Early exit: Invalid or empty input
     if not artists_data or not isinstance(artists_data, dict):
-        logger.warning(f"[Genre Debug] aggregate_genres early exit: invalid input type={type(artists_data)}")
         return None
 
     artists = artists_data.get("artists", [])
-    logger.debug(f"[Genre Debug] aggregate_genres artists count: {len(artists) if artists else 0}")
-    
     if not artists:
-        logger.warning("[Genre Debug] aggregate_genres early exit: no artists list")
         return None
 
     genre_counts = {}
@@ -217,10 +207,8 @@ def aggregate_genres(artists_data):
 
     # Fail fast: No genres found
     if not genre_counts:
-        logger.warning(f"[Genre Debug] aggregate_genres: no genre counts found after processing {len(artists)} artists")
         return None
 
     # Sort by count descending and take top 10
     sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)
-    logger.debug(f"[Genre Debug] aggregate_genres returning {len(sorted_genres[:10])} genres")
     return sorted_genres[:10]

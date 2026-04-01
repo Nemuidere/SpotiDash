@@ -20,7 +20,7 @@ class LayoutBuilder:
             dcc.Store(id="favourites-store", data=[]),
             dcc.Store(id="filter-state-store", data={"time_range": "medium_term", "count": 50, "show_favourites_only": False}),
             dcc.Store(id="artist-filter-store", data={"time_range": "short_term", "count": 12}),
-            dcc.Interval(id="now-playing-interval", interval=10000),
+            dcc.Interval(id="now-playing-interval", interval=5000),
             dcc.Store(id="visibility-store", data=True),
             dcc.Interval(id="progress-interval", interval=1000),
             dcc.Store(id="top-tracks-cache", data=None),
@@ -89,12 +89,23 @@ class LayoutBuilder:
                     "textAlign": "center",
                     "border": "1px solid rgba(255, 255, 255, 0.05)",
                 }),
-            ], style={
-                "display": "flex",
-                "alignItems": "center",
-                "justifyContent": "center",
-                "minHeight": "100vh",
-            }),
+        ], style={
+            "display": "flex",
+            "alignItems": "center",
+            "justifyContent": "center",
+            "minHeight": "100vh",
+        }),
+        # Hidden buttons for Dash callback validation (dashboard buttons)
+        html.Div([
+            html.Button(id="btn-time-recent", style={"display": "none"}),
+            html.Button(id="btn-time-4weeks", style={"display": "none"}),
+            html.Button(id="btn-time-6months", style={"display": "none"}),
+            html.Button(id="btn-time-alltime", style={"display": "none"}),
+            html.Button(id="btn-count-10", style={"display": "none"}),
+            html.Button(id="btn-count-25", style={"display": "none"}),
+            html.Button(id="btn-count-50", style={"display": "none"}),
+            html.Button(id="btn-favourites-only", style={"display": "none"}),
+        ], style={"display": "none"}),
         ])
 
     def build_dashboard_columns(self, user=None):
@@ -558,9 +569,9 @@ class LayoutBuilder:
                 }),
                 html.Div([
                     html.Span(format_time(current_ms), style={
-                        "color": self.styles["text_muted"],
-                        "fontSize": "11px",
-                        "minWidth": "32px",
+                        "color": "#F0F0F0",
+                        "fontSize": "14px",
+                        "minWidth": "40px",
                         "flexShrink": "0",
                     }),
                     html.Div(style={
@@ -571,7 +582,7 @@ class LayoutBuilder:
                         "position": "relative",
                         "margin": "0 12px",
                         "minWidth": "120px",
-                        "maxWidth": "300px",
+                        "maxWidth": "75%",
                         "overflow": "hidden",
                     }, children=[
                         html.Div(style={
@@ -585,9 +596,9 @@ class LayoutBuilder:
                         }),
                     ]),
                     html.Span(format_time(duration_ms), style={
-                        "color": self.styles["text_muted"],
-                        "fontSize": "11px",
-                        "minWidth": "32px",
+                        "color": "#F0F0F0",
+                        "fontSize": "14px",
+                        "minWidth": "40px",
                         "textAlign": "right",
                         "flexShrink": "0",
                     }),

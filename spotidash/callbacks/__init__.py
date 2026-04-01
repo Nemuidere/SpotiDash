@@ -649,16 +649,8 @@ def register_callbacks(app, spotidash):
         Input("genre-filter-store", "data"),
     )
     def update_genre_stats_graph(artists_cache, genre_filter):
-        import logging
-        logger = logging.getLogger(__name__)
-
-        logger.debug("[Genre Debug] update_genre_stats_graph called")
-        logger.debug(f"[Genre Debug] artists_cache keys: {list(artists_cache.keys()) if artists_cache else 'None'}")
-        logger.debug(f"[Genre Debug] genre_filter: {genre_filter}")
-
         # Guard clause: Cache not loaded yet (initial load state)
         if not artists_cache:
-            logger.warning("[Genre Debug] artists_cache is empty/None - still loading")
             return html.Div(
                 "Loading artist data...",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -666,7 +658,6 @@ def register_callbacks(app, spotidash):
 
         # Guard clause: Cache exists but is empty dict (edge case)
         if not isinstance(artists_cache, dict) or len(artists_cache) == 0:
-            logger.warning("[Genre Debug] artists_cache is invalid or empty")
             return html.Div(
                 "Loading artist data...",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -677,7 +668,6 @@ def register_callbacks(app, spotidash):
 
         # Guard clause: Cache loaded but specific time_range not yet populated
         if time_range not in artists_cache:
-            logger.warning(f"[Genre Debug] artists_cache loaded but '{time_range}' not yet available")
             return html.Div(
                 "Loading artist data...",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -734,30 +724,17 @@ def register_callbacks(app, spotidash):
         prevent_initial_call=True,
     )
     def prefetch_playlists(n_intervals, playlists_cache):
-        import logging
-        logger = logging.getLogger(__name__)
-
         # Only fetch once - check if cache already has data
         if playlists_cache:
-            logger.debug(f"[Playlist Debug] Cache exists with {len(playlists_cache)} items, skipping fetch")
             return dash.no_update
 
         if not spotidash.is_authenticated():
-            logger.debug("[Playlist Debug] Not authenticated, skipping fetch")
             return dash.no_update
 
         try:
             playlists = spotidash.get_playlists(limit=50)
-            logger.debug(f"[Playlist Debug] Fetched {len(playlists) if playlists else 0} playlists")
-
-            if playlists:
-                # Log first few playlists for debugging
-                for i, p in enumerate(playlists[:3]):
-                    logger.debug(f"[Playlist Debug] Playlist {i}: name='{p.get('name')}', track_count={p.get('track_count')}, type={type(p.get('track_count'))}")
-
             return playlists if playlists else []
-        except Exception as e:
-            logger.error(f"[Playlist Debug] Error fetching playlists: {e}")
+        except Exception:
             return []
 
     @app.callback(
@@ -874,20 +851,10 @@ def register_callbacks(app, spotidash):
         ], style={'backgroundColor': '#1E1E1E', 'borderRadius': '12px', 'padding': '16px'})
 
     def render_genre_graph(artists_cache, filter_state):
-        import logging
-        logger = logging.getLogger(__name__)
-
         time_range = filter_state.get("time_range", "medium_term") if filter_state else "medium_term"
-
-        # Debug logging to trace data flow
-        logger.debug(f"[Genre Debug] filter_state: {filter_state}")
-        logger.debug(f"[Genre Debug] time_range: {time_range}")
-        logger.debug(f"[Genre Debug] artists_cache keys: {list(artists_cache.keys()) if artists_cache else 'None'}")
-        logger.debug(f"[Genre Debug] artists_cache type: {type(artists_cache)}")
 
         # Guard clause: Cache not loaded yet
         if not artists_cache:
-            logger.warning("[Genre Debug] No artists_cache provided")
             return html.Div(
                 "Loading artist data...",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -895,18 +862,8 @@ def register_callbacks(app, spotidash):
 
         artists_data = artists_cache.get(time_range)
 
-        logger.debug(f"[Genre Debug] artists_data for '{time_range}': {type(artists_data)}")
-        if artists_data:
-            logger.debug(f"[Genre Debug] artists_data keys: {list(artists_data.keys()) if isinstance(artists_data, dict) else 'N/A'}")
-            if isinstance(artists_data, dict):
-                artists_list = artists_data.get("artists", [])
-                logger.debug(f"[Genre Debug] artists_list length: {len(artists_list)}")
-                if artists_list:
-                    logger.debug(f"[Genre Debug] First artist sample: {artists_list[0].get('name') if isinstance(artists_list[0], dict) else 'N/A'}")
-
         # Guard clause: No artists data for this time range
         if not artists_data:
-            logger.warning(f"[Genre Debug] No artists_data for time_range '{time_range}' - cache not yet populated for this range")
             return html.Div(
                 "Loading artist data...",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -915,7 +872,6 @@ def register_callbacks(app, spotidash):
         # Guard clause: Empty artists list (API returned no artists for this range)
         artists_list = artists_data.get("artists", []) if isinstance(artists_data, dict) else []
         if not artists_list:
-            logger.warning(f"[Genre Debug] Empty artists list for time_range '{time_range}'")
             return html.Div(
                 "No artists found for this time range",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -925,7 +881,6 @@ def register_callbacks(app, spotidash):
 
         # Guard clause: Artists exist but no genre classifications
         if not top_genres:
-            logger.warning("[Genre Debug] No genre data available - artists not yet classified")
             return html.Div([
                 html.P("No genre data available", style={
                     "color": "#F0F0F0",
@@ -1103,12 +1058,8 @@ def register_callbacks(app, spotidash):
 
     def render_playlist_treemap(playlists):
         """Render a treemap showing playlists sized by track count."""
-        import logging
-        logger = logging.getLogger(__name__)
-
         # Guard clause: validate input data
         if not playlists:
-            logger.debug("[Treemap Debug] No playlists provided")
             return html.Div(
                 "No playlist data available",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -1118,13 +1069,8 @@ def register_callbacks(app, spotidash):
         names = [p.get("name", "Untitled") for p in playlists]
         values = [p.get("track_count", 0) for p in playlists]
 
-        logger.debug(f"[Treemap Debug] Processing {len(names)} playlists")
-        logger.debug(f"[Treemap Debug] Names: {names[:5]}...")  # Log first 5
-        logger.debug(f"[Treemap Debug] Values: {values[:5]}...")  # Log first 5
-
         # Guard clause: validate extracted data
         if not names or not values or len(names) != len(values):
-            logger.warning(f"[Treemap Debug] Invalid data: names={len(names)}, values={len(values)}")
             return html.Div(
                 "No valid playlist data",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -1133,7 +1079,6 @@ def register_callbacks(app, spotidash):
         # Filter out playlists with 0 tracks to avoid rendering issues
         valid_playlists = [p for p in playlists if p.get("track_count", 0) > 0]
         if not valid_playlists:
-            logger.warning("[Treemap Debug] All playlists have 0 tracks")
             return html.Div(
                 "No playlists with tracks to display",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
@@ -1162,8 +1107,6 @@ def register_callbacks(app, spotidash):
             spotify_urls.append(url if url else "No link")
 
         customdata = list(zip(owners, descriptions, spotify_urls))
-
-        logger.debug(f"[Treemap Debug] Creating treemap with {len(names)} items")
 
         fig = go.Figure(go.Treemap(
             labels=names,
@@ -1211,20 +1154,11 @@ def register_callbacks(app, spotidash):
 
     def render_playlist_donut(playlists):
         """Render a donut chart showing distribution of playlist sizes."""
-        import logging
-        logger = logging.getLogger(__name__)
-
-        logger.debug(f"[Donut Debug] Received playlists: {len(playlists) if playlists else 0} items")
-
         if not playlists:
             return html.Div(
                 "No playlist data available",
                 style={"color": "#888888", "textAlign": "center", "padding": "40px"}
             )
-
-        # Log sample data for debugging
-        for i, p in enumerate(playlists[:5]):
-            logger.debug(f"[Donut Debug] Playlist {i}: {p.get('name')} - track_count={p.get('track_count')} (type: {type(p.get('track_count'))})")
 
         # Categorize playlists by size
         size_categories = {
@@ -1241,7 +1175,6 @@ def register_callbacks(app, spotidash):
             try:
                 track_count = int(track_count) if track_count is not None else 0
             except (ValueError, TypeError):
-                logger.warning(f"[Donut Debug] Invalid track_count for '{playlist.get('name')}': {track_count}")
                 track_count = 0
 
             if track_count < 25:
@@ -1254,8 +1187,6 @@ def register_callbacks(app, spotidash):
                 size_categories["Very Large (100-200)"] += 1
             else:
                 size_categories["Massive (200+)"] += 1
-
-        logger.debug(f"[Donut Debug] Categorized: {size_categories}")
 
         # Ensure labels are in correct order: Small → Massive
         labels = ["Small (< 25)", "Medium (25-50)", "Large (50-100)", "Very Large (100-200)", "Massive (200+)"]
