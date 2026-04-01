@@ -121,5 +121,103 @@ class SpotiDash:
         except Exception:
             return None
 
+    def get_playlists(self, limit=50):
+        """
+        Fetch user's playlists with pagination support.
+
+        Args:
+            limit: Maximum number of playlists to fetch (default 50, capped at 200)
+
+        Returns:
+            List of playlist dicts with name, track_count, images, id, etc.
+            Or None if error occurs.
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Early exit: Cap limit at 200 to prevent excessive API calls
+        if limit is None or not isinstance(limit, int) or limit <= 0:
+            limit = 50
+        limit = min(limit, 200)
+
+        sp = self.get_spotipy_client()
+        if sp is None:
+            return None
+
+        try:
+            all_playlists = []
+            offset = 0
+            page_size = 50  # Spotify's max per request
+
+            while len(all_playlists) < limit:
+                response = sp.current_user_playlists(
+                    limit=min(page_size, limit - len(all_playlists)),
+                    offset=offset
+                )
+
+                logger.debug(f"[get_playlists] API response type: {type(response)}, has items: {'items' in response if response else False}")
+
+                if not response or not isinstance(response, dict):
+                    logger.warning(f"[get_playlists] Invalid response: {response}")
+                    break
+
+                items = response.get("items", [])
+                if not items:
+                    logger.debug("[get_playlists] No items in response")
+                    break
+
+                logger.debug(f"[get_playlists] Processing {len(items)} items")
+
+                for playlist in items:
+                    if not isinstance(playlist, dict):
+                        logger.warning(f"[get_playlists] Skipping non-dict playlist: {playlist}")
+                        continue
+
+                    # Extract track count: try items.total first (recommended), fallback to tracks.total (deprecated)
+                    track_count = 0
+                    used_path = "none"
+
+                    items_data = playlist.get("items", {})
+                    if isinstance(items_data, dict) and "total" in items_data:
+                        track_count = items_data.get("total", 0)
+                        used_path = "items.total"
+                    else:
+                        tracks_data = playlist.get("tracks", {})
+                        if isinstance(tracks_data, dict):
+                            track_count = tracks_data.get("total", 0)
+                            used_path = "tracks.total"
+
+                    if len(all_playlists) < 3:
+                        logger.debug(f"[get_playlists] Playlist '{playlist.get('name')}': used={used_path}, track_count={track_count}")
+
+                    all_playlists.append({
+                        "id": playlist.get("id"),
+                        "name": playlist.get("name", "Untitled Playlist"),
+                        "track_count": track_count,
+                        "images": playlist.get("images", []),
+                        "owner": playlist.get("owner", {}),
+                        "public": playlist.get("public", False),
+                        "collaborative": playlist.get("collaborative", False),
+                        "uri": playlist.get("uri"),
+                        "href": playlist.get("href"),
+                        "description": playlist.get("description"),
+                        "spotify_url": playlist.get("external_urls", {}).get("spotify"),
+                    })
+
+                # Check if there are more pages
+                total = response.get("total", 0)
+                if offset + len(items) >= total:
+                    break
+
+                offset += page_size
+
+            logger.debug(f"[get_playlists] Returning {len(all_playlists)} playlists")
+            return all_playlists
+
+        except Exception as e:
+            # Fail fast: Return None on any error
+            logger.error(f"[get_playlists] Error: {e}")
+            return None
+
     def run(self, **kwargs):
         self.app.run(**kwargs)

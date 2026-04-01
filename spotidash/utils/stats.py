@@ -5,6 +5,75 @@ into statistics-ready formats for visualization.
 """
 
 from datetime import datetime
+from statistics import median
+
+
+# =============================================================================
+# Duration Distribution
+# =============================================================================
+
+def extract_duration_distribution(tracks_cache):
+    """
+    Extract track duration statistics from cached tracks data.
+
+    Args:
+        tracks_cache: Dict mapping time_range to track data with "items" list
+
+    Returns:
+        Dict with duration statistics:
+        {
+            "durations_seconds": [120, 180, 240, ...],  # All valid durations in seconds
+            "min_seconds": 90,
+            "max_seconds": 420,
+            "avg_seconds": 210.5,
+            "median_seconds": 195,
+            "total_tracks": 50,
+        }
+        Or None if no valid duration data.
+    """
+    # Early exit: Invalid or empty input
+    if not tracks_cache or not isinstance(tracks_cache, dict):
+        return None
+
+    durations_ms = []
+
+    # Extract durations from all time ranges in cache
+    for time_range_data in tracks_cache.values():
+        if not time_range_data or not isinstance(time_range_data, dict):
+            continue
+
+        items = time_range_data.get("items", [])
+        if not items or not isinstance(items, list):
+            continue
+
+        for track in items:
+            if not isinstance(track, dict):
+                continue
+
+            duration_ms = track.get("duration_ms")
+            # Skip missing or malformed duration values
+            if duration_ms is None or not isinstance(duration_ms, (int, float)):
+                continue
+            if duration_ms <= 0:
+                continue
+
+            durations_ms.append(duration_ms)
+
+    # Fail fast: Need at least one valid duration
+    if not durations_ms:
+        return None
+
+    # Convert to seconds for display
+    durations_seconds = [ms / 1000 for ms in durations_ms]
+
+    return {
+        "durations_seconds": durations_seconds,
+        "min_seconds": min(durations_seconds),
+        "max_seconds": max(durations_seconds),
+        "avg_seconds": sum(durations_seconds) / len(durations_seconds),
+        "median_seconds": median(durations_seconds),
+        "total_tracks": len(durations_seconds),
+    }
 
 
 # =============================================================================
@@ -111,12 +180,22 @@ def aggregate_genres(artists_data):
         List of (genre, count) tuples sorted by count descending, max 10 items.
         Or None if no genres.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Debug logging
+    logger.debug(f"[Genre Debug] aggregate_genres received: type={type(artists_data)}, value sample={str(artists_data)[:200] if artists_data else 'None'}")
+    
     # Early exit: Invalid or empty input
     if not artists_data or not isinstance(artists_data, dict):
+        logger.warning(f"[Genre Debug] aggregate_genres early exit: invalid input type={type(artists_data)}")
         return None
 
     artists = artists_data.get("artists", [])
+    logger.debug(f"[Genre Debug] aggregate_genres artists count: {len(artists) if artists else 0}")
+    
     if not artists:
+        logger.warning("[Genre Debug] aggregate_genres early exit: no artists list")
         return None
 
     genre_counts = {}
@@ -138,8 +217,10 @@ def aggregate_genres(artists_data):
 
     # Fail fast: No genres found
     if not genre_counts:
+        logger.warning(f"[Genre Debug] aggregate_genres: no genre counts found after processing {len(artists)} artists")
         return None
 
     # Sort by count descending and take top 10
     sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)
+    logger.debug(f"[Genre Debug] aggregate_genres returning {len(sorted_genres[:10])} genres")
     return sorted_genres[:10]

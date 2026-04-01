@@ -24,10 +24,12 @@ class LayoutBuilder:
             dcc.Store(id="visibility-store", data=True),
             dcc.Interval(id="progress-interval", interval=1000),
             dcc.Store(id="top-tracks-cache", data=None),
-            dcc.Interval(id="tracks-prefetch-interval", interval=2000, max_intervals=4),
+            dcc.Interval(id="tracks-prefetch-interval", interval=1000, max_intervals=8),
             dcc.Store(id="top-artists-cache", data=None),
             dcc.Store(id="genre-filter-store", data={"time_range": "medium_term"}),
             dcc.Store(id="recently-played-cache", data=None),
+            dcc.Store(id="playlists-cache", data=None),
+            dcc.Store(id="playlist-view-store", data={"view": "treemap"}),
             html.Div([
                 html.Div(id="login-container", style={
                     "backgroundColor": self.styles["bg"],
@@ -96,17 +98,7 @@ class LayoutBuilder:
         ])
 
     def build_dashboard_columns(self, user=None):
-        # Retrieve track_count and artist_count from filter state stores (default to 10/12)
-        # In Dash, these are set via dcc.Store, so we use the default values for static layout
-        track_count = 10
-        artist_count = 12
-
-        # Estimate heights
-        track_block_height = 120 + 70 * track_count
-        artist_rows = max(1, (artist_count + 3) // 4)
-        artist_block_height = 120 + 110 * artist_rows
-
-        # Build Top Tracks block (as currently rendered)
+        # Build Top Tracks block
         top_tracks_block = html.Div([
             html.H3("Top Tracks", style={
                 "fontSize": "18px",
@@ -338,13 +330,77 @@ class LayoutBuilder:
             "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
         })
 
+        # Music Library block (Duration + Playlists)
+        music_library_block = html.Div([
+            html.H3("Music Library", style={
+                "fontSize": "18px",
+                "fontWeight": "600",
+                "margin": "0 0 16px 0",
+            }),
+            # Track Duration section
+            html.Div([
+                html.H4("Track Duration", style={
+                    "fontSize": "16px",
+                    "fontWeight": "500",
+                    "margin": "0 0 12px 0",
+                    "color": self.styles["text"],
+                }),
+                dcc.Loading(
+                    html.Div(id="duration-container", style={
+                        "minHeight": "350px",
+                    }),
+                    type="default",
+                    color="#4A90D9",
+                ),
+            ], style={"marginBottom": "32px"}),
+            # Playlist Overview section
+            html.Div([
+                html.H4("Playlist Overview", style={
+                    "fontSize": "16px",
+                    "fontWeight": "500",
+                    "margin": "0 0 12px 0",
+                    "color": self.styles["text"],
+                }),
+                html.Div([
+                    html.Button(
+                        "Treemap",
+                        id="btn-playlist-treemap",
+                        n_clicks=0,
+                        className="time-range-btn active"
+                    ),
+                    html.Button(
+                        "Donut",
+                        id="btn-playlist-donut",
+                        n_clicks=0,
+                        className="time-range-btn"
+                    ),
+                ], style={
+                    "display": "flex",
+                    "gap": "8px",
+                    "marginBottom": "12px",
+                }),
+                dcc.Loading(
+                    html.Div(id="playlists-container", style={
+                        "minHeight": "400px",
+                    }),
+                    type="default",
+                    color="#4A90D9",
+                ),
+            ], style={}),
+        ], style={
+            "backgroundColor": self.styles["card_bg"],
+            "borderRadius": self.styles["border_radius"],
+            "padding": "24px",
+            "border": "1px solid rgba(255, 255, 255, 0.05)",
+            "minWidth": "320px",
+            "width": "100%",
+            "marginBottom": "24px",
+            "boxShadow": "0 4px 24px 0 rgba(0,0,0,0.12)",
+        })
+
         # Assign blocks to columns based on estimated height
         left_column = [top_tracks_block]
-        right_column = [top_artists_block]
-        if track_block_height > artist_block_height:
-            right_column.append(stats_panel_block)
-        else:
-            left_column.append(stats_panel_block)
+        right_column = [top_artists_block, stats_panel_block, music_library_block]
 
         # Responsive two-column flex layout
         columns = html.Div([
