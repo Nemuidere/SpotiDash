@@ -95,7 +95,10 @@ class LayoutBuilder:
             "justifyContent": "center",
             "minHeight": "100vh",
         }),
-        # Hidden buttons for Dash callback validation (dashboard buttons)
+        # Hidden buttons for Dash callback validation (dashboard buttons).
+        # These placeholders let the Top Tracks / Top Artists callbacks — which
+        # run on initial load — resolve their button Inputs while the login
+        # screen is shown, before the real dashboard buttons exist.
         html.Div([
             html.Button(id="btn-time-recent", style={"display": "none"}),
             html.Button(id="btn-time-4weeks", style={"display": "none"}),
@@ -105,6 +108,13 @@ class LayoutBuilder:
             html.Button(id="btn-count-25", style={"display": "none"}),
             html.Button(id="btn-count-50", style={"display": "none"}),
             html.Button(id="btn-favourites-only", style={"display": "none"}),
+            html.Button(id="btn-artist-recent", style={"display": "none"}),
+            html.Button(id="btn-artist-4weeks", style={"display": "none"}),
+            html.Button(id="btn-artist-6months", style={"display": "none"}),
+            html.Button(id="btn-artist-alltime", style={"display": "none"}),
+            html.Button(id="btn-artist-count-4", style={"display": "none"}),
+            html.Button(id="btn-artist-count-12", style={"display": "none"}),
+            html.Button(id="btn-artist-count-24", style={"display": "none"}),
         ], style={"display": "none"}),
         ])
 
