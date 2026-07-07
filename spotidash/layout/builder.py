@@ -116,6 +116,20 @@ class LayoutBuilder:
             html.Button(id="btn-artist-count-12", style={"display": "none"}),
             html.Button(id="btn-artist-count-24", style={"display": "none"}),
         ], style={"display": "none"}),
+        # Hidden container placeholders. The content/graph callbacks run on
+        # initial load and every interval tick; without these output targets on
+        # the login screen, Dash retries them forever and logs "nonexistent
+        # object in an Output" each second. The real containers live in the
+        # dashboard, which is mutually exclusive with the login page (no dup ids).
+        html.Div([
+            html.Div(id="top-tracks-container"),
+            html.Div(id="top-artists-container"),
+            html.Div(id="now-playing-bar"),
+            html.Div(id="listening-time-container"),
+            html.Div(id="genre-stats-container"),
+            html.Div(id="duration-container"),
+            html.Div(id="playlists-container"),
+        ], style={"display": "none"}),
         ])
 
     def build_dashboard_columns(self, user=None):
