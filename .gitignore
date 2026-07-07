@@ -1,5 +1,7 @@
 # Project
 AGENTS.md
+.gitignore
+.claude
 
 # Python
 __pycache__/

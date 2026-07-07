@@ -38,7 +38,7 @@ class SpotiDash:
         </html>
         '''
         self.server = self.app.server
-        self.server.secret_key = "spotidash-secret-key"
+        self.server.secret_key = Config.SECRET_KEY
         self.cache_handler = FlaskSessionCacheHandler(session)
         self.sp_oauth = SpotifyOAuth(
             client_id=Config.SPOTIPY_CLIENT_ID,

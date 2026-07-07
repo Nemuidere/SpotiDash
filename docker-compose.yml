@@ -7,5 +7,6 @@ services:
       - SPOTIPY_CLIENT_ID=${SPOTIPY_CLIENT_ID}
       - SPOTIPY_CLIENT_SECRET=${SPOTIPY_CLIENT_SECRET}
       - SPOTIPY_REDIRECT_URI=${SPOTIPY_REDIRECT_URI}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
     volumes:
       - ./spotidash:/app/spotidash
